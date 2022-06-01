@@ -1,13 +1,17 @@
+import GlobalMercator from './resources/globalmaptiles.js';
+
 let camera, controls, scene, renderer;
 
-let plane, cube, light, poly;
+let plane, cube, light, poly, sceneLights = [];
+
+const globalMercatorUtils = new GlobalMercator();
 
 window.addEventListener('load', () => {
     init();
-//render(); // remove when using next line for animation loop (requestAnimationFrame)
     animate();
 
-    addSunControls();
+    loadAndRenderTileData();
+    addControls();
 });
 
 function init(array, offset) {
@@ -18,13 +22,13 @@ function init(array, offset) {
 
     renderer = new THREE.WebGLRenderer( { antialias: true } );
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFShadowMap;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.setPixelRatio( window.devicePixelRatio );
     renderer.setSize( window.innerWidth, window.innerHeight );
     document.body.appendChild( renderer.domElement );
 
     camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 1000 );
-    camera.position.set(0, 0, 100);
+    camera.position.set(0, 0, 200);
 
     // controls
 
@@ -38,7 +42,7 @@ function init(array, offset) {
 
     controls.screenSpacePanning = false;
 
-    controls.minDistance = 100;
+    controls.minDistance = 0;
     controls.maxDistance = 500;
 
     controls.maxPolarAngle = Math.PI;
@@ -51,145 +55,134 @@ function init(array, offset) {
     cube.position.y = 20;
     cube.castShadow = true;
     cube.receiveShadow = true;
-    scene.add(cube);
     scene.background = new THREE.Color(0xffffff);
 
     plane = new THREE.Mesh(
-        new THREE.PlaneGeometry(100, 100, 2, 2),
+        //See Ref 1
+        new THREE.PlaneGeometry(1223, 1223),
         new THREE.MeshStandardMaterial({
             color: 0xff0000,
         }));
-    // plane.castShadow = false;
-    // plane.receiveShadow = true;
     plane.rotation.x = -Math.PI / 2
     plane.castShadow = false;
     plane.receiveShadow = true;
-    window.plane = plane;
-    let helper = new THREE.VertexNormalsHelper( plane, 20, 0x00ff00, 2 );
 
-    // scene.add(plane);
-    // scene.add(helper);
-    const refLon = 37.364688;
-    const refLat = -121.912974;
+    scene.add(plane);
 
-    let coords = [[-121.912974,37.364688],[-121.912801,37.364768],[-121.912779,37.36474],[-121.912745,37.364756],[-121.912769,37.364788],[-121.912731,37.364806],[-121.912705,37.364771],[-121.912651,37.364796],[-121.912671,37.364822],[-121.912548,37.36488],[-121.912438,37.364731],[-121.912554,37.364677],[-121.912528,37.364642],[-121.912669,37.364576],[-121.912643,37.364542],[-121.912809,37.364465],[-121.912974,37.364688]];
-    coords = coords.slice(0, 4).map(([x, y]) => ([Math.floor((x - refLat) * 100000), Math.floor((y - refLon) * 100000)]));
+    makeLights();
 
-    // coords.push([0, 20, 0]);
-    // coords.pop();
-    // console.log(coords);
-    makeInstance(coords, 0, [-1, 0, 0]);
-    makeInstance(coords, 10, [1, 0, 0]);
-    makeInstance(coords, 20, [0, 1, 0]);
-    makeInstance(coords, 30, [0, -1, 0]);
-    makeInstance(coords, 40, [0, 0, 1]);
-    makeInstance(coords, 50, [0, 0, -1]);
-    // const normals = [];
-    // const uvs = [];
-    // for (let i = 0; i < coords.length; i++) {
-    //     normals.push([0, 1, 0]);
-    //     uvs.push([0, 1]);
-    // }
-    // const faces = earcut(coords.flatMap(a => ([a[0], a[1]])));
-    // coords = coords.flatMap(a => ([a[0], 10, a[1]]));
-    // console.log(coords);
-    // console.log(faces);
-    // // let points = coords.map(cord => new THREE.Vector3( cord[0], cord[1], cord[2] ));
-    // // points = points.concat(coords.map(cord => new THREE.Vector3( cord[0], cord[1] + 10, cord[2] )))
-    // // const points = [];
-    // // points.push(new THREE.Vector3( 10, 20, 10 ));
-    // // points.push(new THREE.Vector3( 20, 20, 10 ));
-    // // points.push(new THREE.Vector3( 20, 20, 20 ));
-    // // points.push(new THREE.Vector3( 10, 20, 20 ));
-    // // points.push(new THREE.Vector3( 10, 20, 10 ));
-    // // points.push(new THREE.Vector3( 20, 20, 10 ));
-    // // points.push(new THREE.Vector3( 20, 20, 20 ));
-    // // points.push(new THREE.Vector3( 10, 20, 20 ));
-    //
-    // // geometry = new THREE.ConvexGeometry(points);
-    // // const path = new THREE.Path();
-    // //
-    // // path.moveTo(points[0].x, points[0].z);
-    // // for (let point of points) {
-    // //     // console.log(point);
-    // //     path.lineTo(point.x, point.z);
-    // // }
-    // // geometry = new THREE.BufferGeometry().setFromPoints( points );
-    // // material = new THREE.LineBasicMaterial( { color: 0x000000 } );
-    // // material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
-    // geometry = new THREE.BufferGeometry();
-    // geometry.setAttribute(
-    //     'position',
-    //     new THREE.BufferAttribute(new Float32Array(coords), 3));
-    // geometry.setAttribute(
-    //     'normal',
-    //     new THREE.BufferAttribute(new Float32Array(normals.flatMap(a => (a))), 3));
-    // geometry.setAttribute(
-    //     'uv',
-    //     new THREE.BufferAttribute(new Float32Array(uvs.flatMap(a => (a))), 2));
-    // geometry.setIndex(faces);
-    // // geometry.computeVertexNormals();
-    // material = new THREE.MeshBasicMaterial({color: 0x00ff00});
-    // poly = new THREE.Mesh(geometry, material);
-    // poly.castShadow = false;
-    // poly.receiveShadow = false;
-    // helper = new THREE.VertexNormalsHelper( poly, 20, 0x00ffff, 2 );
-    // scene.add(poly);
-    // scene.add(helper);
-
-    // lights
-
-    const color = 0xFFFFFF;
-    const intensity = 100;
-    light = new THREE.PointLight( color, intensity, 200 );
-    light.position.set(0, 80, 0);
-    light.castShadow = true;
-    scene.add(light);
-    helper = new THREE.PointLightHelper( light, 50, 0xFF0000 );
-    scene.add( helper );
-
-    // const axesHelper = new THREE.AxesHelper( 50 );
-    // scene.add( axesHelper );
+    const axesHelper = new THREE.AxesHelper( 50 );
+    scene.add( axesHelper );
 
     window.addEventListener( 'resize', onWindowResize );
 
 }
 
-function makeInstance(coords, displace, normalArr) {
+function makeLights() {
+    const color = 0xFFFFFF;
+    const intensity = 20;
+    light = new THREE.PointLight( color, intensity, 200 );
+    light.position.set(0, 80, 0);
+    light.castShadow = true;
+    light.shadow.mapSize.width = 2048;
+    light.shadow.mapSize.height = 2048;
+    scene.add(light);
+    let helper = new THREE.PointLightHelper( light, 50, 0xFF0000 );
+    scene.add( helper );
+
+    let sceneLight = new THREE.PointLight( color, 1, 200 );
+    sceneLight.position.set(200, 10, 0);
+    scene.add(sceneLight);
+    sceneLights.push(sceneLight);
+    helper = new THREE.PointLightHelper(sceneLight, 10, 0xFF0000 );
+    scene.add( helper );
+
+    sceneLight = new THREE.PointLight( color, 1, 200 );
+    sceneLight.position.set(-200, 10, 0);
+    scene.add(sceneLight);
+    sceneLights.push(sceneLight);
+    helper = new THREE.PointLightHelper(sceneLight, 10, 0xFF0000 );
+    scene.add( helper );
+
+    sceneLight = new THREE.PointLight( color, 1, 200 );
+    sceneLight.position.set(0, 10, 200);
+    scene.add(sceneLight);
+    sceneLights.push(sceneLight);
+    helper = new THREE.PointLightHelper(sceneLight, 10, 0xFF0000 );
+    scene.add( helper );
+
+    sceneLight = new THREE.PointLight( color, 1, 200 );
+    sceneLight.position.set(0, 10, -200);
+    scene.add(sceneLight);
+    sceneLights.push(sceneLight);
+    helper = new THREE.PointLightHelper(sceneLight, 10, 0xFF0000 );
+    scene.add( helper );
+}
+
+function makeInstance(coords, height) {
+    var buildingShape = new THREE.Shape();
+
+    buildingShape.moveTo(coords[0][0], coords[0][1]);
+    coords.forEach(e => buildingShape.lineTo(e[0], e[1]));
+    const extrudeSettings = {
+        depth: height / 10, bevelEnabled: true, bevelSegments: 2, steps: 2,
+        bevelSize: 0.1, bevelThickness: 0.1
+    };
+
+    let geometry = new THREE.ExtrudeGeometry(buildingShape, extrudeSettings);
+
+    const mesh = new THREE.Mesh(geometry, new THREE.MeshPhongMaterial({ color: 0xffff00 }));
+    mesh.receiveShadow = true;
+    mesh.castShadow = true;
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.y = 0;
+    scene.add(mesh);
+}
+
+function loadAndRenderTileData() {
+    fetch('https://b.data.osmbuildings.org/0.2/ph2apjye/tile/15/5287/12712.json').then(j => j.json())
+        .then((data) => {
+
+            const refXTile = 5287;
+            const refYTile = 12712;
+            const tileBounds = globalMercatorUtils.TileBounds(refXTile,refYTile,15)
+            const {lat: minLat, lon: minLon} = globalMercatorUtils.MetersToLatLon(tileBounds.minx, tileBounds.miny);
+            const {lat: maxLat, lon: maxLon} = globalMercatorUtils.MetersToLatLon(tileBounds.maxx, tileBounds.maxy);
+            const refLon = (minLon + maxLon) / 2;
+            const refLat = -(minLat + maxLat) / 2;
+
+            for (let i = 0; i < data.features.length; i++) {
+                const coordsArr = data.features[i].geometry.coordinates;
+                for (let j = 0; j < coordsArr.length; j++) {
+                    let coords = coordsArr[j];
+                    coords = coords.map(([x, y]) => {
+                        return ([(x - refLon) * 10000, (y - refLat) * 10000])
+                    });
+                    makeInstance(coords, data.features[i].properties.height);
+                }
+            }
+        });
+}
+
+function legacyBufferGeometryEarcutAlgo(coords, displace, normalArr) {
+
     const normals = [];
     const uvs = [];
     for (let i = 0; i < coords.length; i++) {
         normals.push(normalArr);
-        uvs.push([0, 1]);
     }
+    uvs.push([0, 1]);
+    uvs.push([1, 1]);
+    uvs.push([0, 0]);
+    uvs.push([1, 0]);
+    uvs.push([0, 1]);
+    uvs.push([1, 1]);
     const faces = earcut(coords.flatMap(a => ([a[0], a[1]])));
     coords = coords.flatMap(a => ([a[0], 10, a[1]]));
-    console.log(coords);
-    console.log(faces);
-    // let points = coords.map(cord => new THREE.Vector3( cord[0], cord[1], cord[2] ));
-    // points = points.concat(coords.map(cord => new THREE.Vector3( cord[0], cord[1] + 10, cord[2] )))
-    // const points = [];
-    // points.push(new THREE.Vector3( 10, 20, 10 ));
-    // points.push(new THREE.Vector3( 20, 20, 10 ));
-    // points.push(new THREE.Vector3( 20, 20, 20 ));
-    // points.push(new THREE.Vector3( 10, 20, 20 ));
-    // points.push(new THREE.Vector3( 10, 20, 10 ));
-    // points.push(new THREE.Vector3( 20, 20, 10 ));
-    // points.push(new THREE.Vector3( 20, 20, 20 ));
-    // points.push(new THREE.Vector3( 10, 20, 20 ));
+    // console.log(coords);
+    // console.log(faces);
 
-    // geometry = new THREE.ConvexGeometry(points);
-    // const path = new THREE.Path();
-    //
-    // path.moveTo(points[0].x, points[0].z);
-    // for (let point of points) {
-    //     // console.log(point);
-    //     path.lineTo(point.x, point.z);
-    // }
-    // geometry = new THREE.BufferGeometry().setFromPoints( points );
-    // material = new THREE.LineBasicMaterial( { color: 0x000000 } );
-    // material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
-    let geometry = new THREE.BufferGeometry();
+    geometry = new THREE.BufferGeometry();
     geometry.setAttribute(
         'position',
         new THREE.BufferAttribute(new Float32Array(coords), 3));
@@ -199,7 +192,11 @@ function makeInstance(coords, displace, normalArr) {
     geometry.setAttribute(
         'uv',
         new THREE.BufferAttribute(new Float32Array(uvs.flatMap(a => (a))), 2));
-    geometry.setIndex(faces);
+    //1, 0, 4, 4, 3, 2, 2, 1, 4
+    //1, 0, 5, 4, 3, 2, 1, 5, 4, 4, 2, 1
+    geometry.setIndex([0, 1, 5, 2, 3, 4, 4, 5, 1, 1, 2, 4]);
+    geometry.setIndex([0, 1, 5, 2, 3, 4, 1, 4, 5, 1, 2, 4]);
+    // geometry.setIndex(faces);
     // geometry.computeVertexNormals();
     let material = new THREE.MeshBasicMaterial({color: 0x00ff00});
     poly = new THREE.Mesh(geometry, material);
@@ -224,9 +221,6 @@ function animate() {
 
     requestAnimationFrame( animate );
 
-    // cube.rotation.x += 0.01;
-    // light.position.x += 0.1;
-    // poly.rotation.x += 0.01;
     controls.update(); // only required if controls.enableDamping = true, or if controls.autoRotate = true
 
     render();
@@ -239,12 +233,40 @@ function render() {
 
 }
 
-function addSunControls() {
+function addControls() {
     const dayTimeSlider = document.querySelector('#dayTimeSlider');
     dayTimeSlider.addEventListener('input', onChangeDayTimeSlider);
+    const yearDaySlider = document.querySelector('#yearDaySlider');
+    yearDaySlider.addEventListener('input', onChangeYearDaySlider);
+    const sceneLights = document.querySelector('#sceneLights');
+    sceneLights.addEventListener('input', onChangeSceneLights);
 }
 
 function onChangeDayTimeSlider(event) {
     const value = event.target.value;
     light.position.x = value;
 }
+
+function onChangeYearDaySlider(event) {
+    const value = event.target.value;
+    light.position.z = value;
+}
+
+function onChangeSceneLights(event) {
+    for (let sceneLight of sceneLights) {
+        sceneLight.intensity = event.target.checked ? 1 : 0;
+    }
+}
+
+function lon2tile(lon,zoom) { return (Math.floor((lon+180)/360*Math.pow(2,zoom))); }
+function lat2tile(lat,zoom)  { return (Math.floor((1-Math.log(Math.tan(lat*Math.PI/180) + 1/Math.cos(lat*Math.PI/180))/Math.PI)/2 *Math.pow(2,zoom))); }
+
+//References
+//1
+//1223 meters/tile side @ zoom level 15
+//https://docs.microsoft.com/en-us/azure/azure-maps/zoom-levels-and-tile-grid?tabs=csharp
+
+//2
+//Length in meters of 1° of latitude = always 111.32 km
+//Length in meters of 1° of longitude = 40075 km * cos( latitude ) / 360
+//https://stackoverflow.com/questions/639695/how-to-convert-latitude-or-longitude-to-meters
