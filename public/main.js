@@ -81,14 +81,21 @@ function init(array, offset) {
 function makeLights() {
     const color = 0xFFFFFF;
     const intensity = 20;
-    light = new THREE.PointLight( color, intensity, 200 );
-    light.position.set(0, 80, 0);
+
+    light = new THREE.DirectionalLight(color, intensity);
     light.castShadow = true;
     light.shadow.mapSize.width = 2048;
     light.shadow.mapSize.height = 2048;
+    light.shadow.camera.left = 100;
+    light.shadow.camera.right = -100;
+    light.shadow.camera.top = 100;
+    light.shadow.camera.bottom = -100;
+    light.shadow.camera.near = 0.5;
+    light.shadow.camera.far = 500;
+    light.position.y = 50;
     scene.add(light);
-    let helper = new THREE.PointLightHelper( light, 50, 0xFF0000 );
-    scene.add( helper );
+    let helper = new THREE.CameraHelper(light.shadow.camera);
+    scene.add(helper);
 
     let sceneLight = new THREE.PointLight( color, 1, 200 );
     sceneLight.position.set(200, 10, 0);
@@ -131,7 +138,7 @@ function makeInstance(coords, height) {
 
     let geometry = new THREE.ExtrudeGeometry(buildingShape, extrudeSettings);
 
-    const mesh = new THREE.Mesh(geometry, new THREE.MeshPhongMaterial({ color: 0xffff00 }));
+    const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: 0x777777 }));
     mesh.receiveShadow = true;
     mesh.castShadow = true;
     mesh.rotation.x = -Math.PI / 2;
@@ -244,12 +251,12 @@ function addControls() {
 
 function onChangeDayTimeSlider(event) {
     const value = event.target.value;
-    light.position.x = value;
+    light.position.set(+value, light.position.y, light.position.z);
 }
 
 function onChangeYearDaySlider(event) {
     const value = event.target.value;
-    light.position.z = value;
+    light.position.set(light.position.x, light.position.y, +value);
 }
 
 function onChangeSceneLights(event) {
