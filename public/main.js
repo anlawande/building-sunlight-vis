@@ -28,7 +28,7 @@ function init() {
     document.body.appendChild( renderer.domElement );
 
     camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 1000 );
-    camera.position.set(0, 0, 200);
+    camera.position.set(0, 100, 200);
 
     // controls
 
@@ -144,14 +144,14 @@ function makeInstance(coords, height) {
     mesh.rotation.x = -Math.PI / 2;
     mesh.position.y = 0;
     scene.add(mesh);
+    return mesh;
 }
 
 function loadAndRenderTileData() {
-    fetch('https://b.data.osmbuildings.org/0.2/ph2apjye/tile/15/5287/12712.json').then(j => j.json())
+    const refXTile = 5287;
+    const refYTile = 12712;
+    fetch(`https://b.data.osmbuildings.org/0.2/ph2apjye/tile/15/${refXTile}/${refYTile}.json`).then(j => j.json())
         .then((data) => {
-
-            const refXTile = 5287;
-            const refYTile = 12712;
             const tileBounds = globalMercatorUtils.TileBounds(refXTile,refYTile,15)
             const {lat: minLat, lon: minLon} = globalMercatorUtils.MetersToLatLon(tileBounds.minx, tileBounds.miny);
             const {lat: maxLat, lon: maxLon} = globalMercatorUtils.MetersToLatLon(tileBounds.maxx, tileBounds.maxy);
@@ -167,54 +167,11 @@ function loadAndRenderTileData() {
                     coords = coords.map(([x, y]) => {
                         return ([(x - refLon) / longsPerUnits, (y - refLat) / latsPerUnit])
                     });
-                    makeInstance(coords, data.features[i].properties.height);
+                    const mesh = makeInstance(coords, data.features[i].properties.height);
+                    mesh.xy = { x: 5287, y: 12712 };
                 }
             }
         });
-}
-
-function legacyBufferGeometryEarcutAlgo(coords, displace, normalArr) {
-
-    const normals = [];
-    const uvs = [];
-    for (let i = 0; i < coords.length; i++) {
-        normals.push(normalArr);
-    }
-    uvs.push([0, 1]);
-    uvs.push([1, 1]);
-    uvs.push([0, 0]);
-    uvs.push([1, 0]);
-    uvs.push([0, 1]);
-    uvs.push([1, 1]);
-    const faces = earcut(coords.flatMap(a => ([a[0], a[1]])));
-    coords = coords.flatMap(a => ([a[0], 10, a[1]]));
-    // console.log(coords);
-    // console.log(faces);
-
-    geometry = new THREE.BufferGeometry();
-    geometry.setAttribute(
-        'position',
-        new THREE.BufferAttribute(new Float32Array(coords), 3));
-    geometry.setAttribute(
-        'normal',
-        new THREE.BufferAttribute(new Float32Array(normals.flatMap(a => (a))), 3));
-    geometry.setAttribute(
-        'uv',
-        new THREE.BufferAttribute(new Float32Array(uvs.flatMap(a => (a))), 2));
-    //1, 0, 4, 4, 3, 2, 2, 1, 4
-    //1, 0, 5, 4, 3, 2, 1, 5, 4, 4, 2, 1
-    geometry.setIndex([0, 1, 5, 2, 3, 4, 4, 5, 1, 1, 2, 4]);
-    geometry.setIndex([0, 1, 5, 2, 3, 4, 1, 4, 5, 1, 2, 4]);
-    // geometry.setIndex(faces);
-    // geometry.computeVertexNormals();
-    let material = new THREE.MeshBasicMaterial({color: 0x00ff00});
-    poly = new THREE.Mesh(geometry, material);
-    poly.castShadow = false;
-    poly.receiveShadow = false;
-    poly.position.x += displace;
-    let helper = new THREE.VertexNormalsHelper( poly, 20, 0x00ffff, 2 );
-    scene.add(poly);
-    scene.add(helper);
 }
 
 function onWindowResize() {
@@ -226,8 +183,18 @@ function onWindowResize() {
 
 }
 
+let frame = 1;
 function animate() {
 
+    if (frame <= 60) {
+        for (const obj of scene.children) {
+            if ((obj.type !== 'Mesh' && obj.geometry && obj.geometry.type !== 'ExtrudeGeometry') || !obj.xy) {
+                continue;
+            }
+            obj.scale.z = frame / 60;
+        }
+        frame++;
+    }
     requestAnimationFrame( animate );
 
     controls.update(); // only required if controls.enableDamping = true, or if controls.autoRotate = true
