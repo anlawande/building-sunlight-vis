@@ -14,7 +14,7 @@ window.addEventListener('load', () => {
     addControls();
 });
 
-function init(array, offset) {
+function init() {
 
     scene = new THREE.Scene();
     scene.background = new THREE.Color( 0xcccccc );
@@ -132,7 +132,7 @@ function makeInstance(coords, height) {
     buildingShape.moveTo(coords[0][0], coords[0][1]);
     coords.forEach(e => buildingShape.lineTo(e[0], e[1]));
     const extrudeSettings = {
-        depth: height / 10, bevelEnabled: true, bevelSegments: 2, steps: 2,
+        depth: height / 6.115, bevelEnabled: true, bevelSegments: 2, steps: 2,
         bevelSize: 0.1, bevelThickness: 0.1
     };
 
@@ -157,13 +157,15 @@ function loadAndRenderTileData() {
             const {lat: maxLat, lon: maxLon} = globalMercatorUtils.MetersToLatLon(tileBounds.maxx, tileBounds.maxy);
             const refLon = (minLon + maxLon) / 2;
             const refLat = -(minLat + maxLat) / 2;
+            const latsPerUnit = 0.00005493172835070069; //See calculations below
+            const longsPerUnits = 1 / (40075000 * Math.cos(refLat) / 360) * 8; // No idea how it is off by factor of 8;
 
             for (let i = 0; i < data.features.length; i++) {
                 const coordsArr = data.features[i].geometry.coordinates;
                 for (let j = 0; j < coordsArr.length; j++) {
                     let coords = coordsArr[j];
                     coords = coords.map(([x, y]) => {
-                        return ([(x - refLon) * 10000, (y - refLat) * 10000])
+                        return ([(x - refLon) / longsPerUnits, (y - refLat) / latsPerUnit])
                     });
                     makeInstance(coords, data.features[i].properties.height);
                 }
@@ -267,6 +269,19 @@ function onChangeSceneLights(event) {
 
 function lon2tile(lon,zoom) { return (Math.floor((lon+180)/360*Math.pow(2,zoom))); }
 function lat2tile(lat,zoom)  { return (Math.floor((1-Math.log(Math.tan(lat*Math.PI/180) + 1/Math.cos(lat*Math.PI/180))/Math.PI)/2 *Math.pow(2,zoom))); }
+
+/*Calculations
+* Mapping a 1223[1] m/side XY tile to 200 unit square in 3d space
+* => 6.115 m/unit
+*
+* 1° latitude = 111320m [2]
+* => 1m = 0.00000898311174991017 lat
+* => 0.00005493172835070069 lat/unit
+*
+* * 1° longitude = 111320m [2]
+* => 1m = 0.00000898311174991017 lat
+* => 0.00005493172835070069 lat/unit
+*/
 
 //References
 //1
