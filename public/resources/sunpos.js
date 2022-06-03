@@ -2,7 +2,6 @@ function sunpos(when, location, refraction) {
     // # Extract the passed data
     const [year, month, day, hour, minute, second, timezone] = when;
     const [latitude, longitude] = location;
-    console.log(latitude, longitude);
 
     // Convert latitude and longitude to radians
     const rlat = toRadians(latitude)
@@ -75,11 +74,14 @@ function intoRange(x, range_min, range_max) {
     return (((shiftedx % delta) + delta) % delta) + range_min;
 }
 
-// Close Encounters latitude, longitude
-location =[40.602778, -104.741667]
-// Fourth of July, 2022 at 11:20 am MDT (-6 hours)
-when = [2022, 7, 4, 11, 20, 0, -6]
-// Get the Sun's apparent location in the sky
-const [azimuth, elevation] = sunpos(when, location, true);
-console.log(azimuth);
-console.log(elevation);
+function sunposXYZ(sphereRad, azimuth, elevation) {
+    const azimuthRadians = toRadians(azimuth);
+    const elevationRadians = toRadians(elevation);
+    const z = Math.sin(elevationRadians) * sphereRad;
+    const sphereSliceRad = Math.cos(elevationRadians) * sphereRad;
+    const x = Math.sin(azimuthRadians) * sphereSliceRad;
+    const y = Math.cos(azimuthRadians) * sphereSliceRad;
+    return [x, y, z];
+}
+
+export default { sunpos, sunposXYZ };

@@ -154,5 +154,4 @@ class GlobalMercator {
     }
 }
 
-window.GlobalMercator = GlobalMercator;
 export default GlobalMercator;

@@ -1,23 +1,31 @@
 import GlobalMercator from './resources/globalmaptiles.js';
+import SunposUtils from './resources/sunpos.js';
 
 let camera, controls, scene, renderer;
 
 let plane, cube, light, poly, sceneLights = [];
 
 const globalMercatorUtils = new GlobalMercator();
+const today = new Date();
+const zoomLevel = 15;
 
 window.addEventListener('load', () => {
     init();
     animate();
 
+    const yearDaySlider = document.querySelector('#yearDaySlider');
+    yearDaySlider.value = dayNumFromMonthDay(today.getMonth()+1, today.getDate());
     loadAndRenderTileData();
     addControls();
 });
 
+const location =[-6.7519, -74.0039];
+// Fourth of July, 2022 at 11:20 am MDT (-6 hours)
+const when = [2022, today.getMonth()+1, today.getDate(), 12, 0, 0, -7];
+
 function init() {
 
     scene = new THREE.Scene();
-    scene.background = new THREE.Color( 0xcccccc );
     // scene.fog = new THREE.FogExp2( 0xcccccc, 0.002 );
 
     renderer = new THREE.WebGLRenderer( { antialias: true } );
@@ -28,7 +36,7 @@ function init() {
     document.body.appendChild( renderer.domElement );
 
     camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 1000 );
-    camera.position.set(0, 100, 200);
+    camera.position.set(-200, 100, 0);
 
     // controls
 
@@ -58,8 +66,8 @@ function init() {
     scene.background = new THREE.Color(0xffffff);
 
     plane = new THREE.Mesh(
-        //See Ref 1
-        new THREE.PlaneGeometry(1223, 1223),
+        //See calculations
+        new THREE.PlaneGeometry(200, 200),
         new THREE.MeshStandardMaterial({
             color: 0xff0000,
         }));
@@ -70,6 +78,7 @@ function init() {
     scene.add(plane);
 
     makeLights();
+    renderDateTimeOutput();
 
     const axesHelper = new THREE.AxesHelper( 50 );
     scene.add( axesHelper );
@@ -80,19 +89,18 @@ function init() {
 
 function makeLights() {
     const color = 0xFFFFFF;
-    const intensity = 20;
+    const intensity = 10;
 
     light = new THREE.DirectionalLight(color, intensity);
     light.castShadow = true;
     light.shadow.mapSize.width = 2048;
     light.shadow.mapSize.height = 2048;
-    light.shadow.camera.left = 100;
-    light.shadow.camera.right = -100;
-    light.shadow.camera.top = 100;
-    light.shadow.camera.bottom = -100;
+    light.shadow.camera.left = 150;
+    light.shadow.camera.right = -150;
+    light.shadow.camera.top = 150;
+    light.shadow.camera.bottom = -150;
     light.shadow.camera.near = 0.5;
     light.shadow.camera.far = 500;
-    light.position.y = 50;
     scene.add(light);
     let helper = new THREE.CameraHelper(light.shadow.camera);
     scene.add(helper);
@@ -108,22 +116,30 @@ function makeLights() {
     sceneLight.position.set(-200, 10, 0);
     scene.add(sceneLight);
     sceneLights.push(sceneLight);
-    helper = new THREE.PointLightHelper(sceneLight, 10, 0xFF0000 );
+    helper = new THREE.PointLightHelper(sceneLight, 10, 0x990000 );
     scene.add( helper );
 
     sceneLight = new THREE.PointLight( color, 1, 200 );
     sceneLight.position.set(0, 10, 200);
     scene.add(sceneLight);
     sceneLights.push(sceneLight);
-    helper = new THREE.PointLightHelper(sceneLight, 10, 0xFF0000 );
+    helper = new THREE.PointLightHelper(sceneLight, 10, 0x0000FF );
     scene.add( helper );
 
     sceneLight = new THREE.PointLight( color, 1, 200 );
     sceneLight.position.set(0, 10, -200);
     scene.add(sceneLight);
     sceneLights.push(sceneLight);
-    helper = new THREE.PointLightHelper(sceneLight, 10, 0xFF0000 );
+    helper = new THREE.PointLightHelper(sceneLight, 10, 0x000099 );
     scene.add( helper );
+}
+
+function positionSunLight() {
+    const [azimuth, elevation] = SunposUtils.sunpos(when, location, true);
+    const [x, y, z] = SunposUtils.sunposXYZ(200, azimuth, elevation);
+    light.position.x = y;
+    light.position.y = z;
+    light.position.z = x;
 }
 
 function makeInstance(coords, height) {
@@ -142,15 +158,16 @@ function makeInstance(coords, height) {
     mesh.receiveShadow = true;
     mesh.castShadow = true;
     mesh.rotation.x = -Math.PI / 2;
+    mesh.rotation.z = -Math.PI / 2;
     mesh.position.y = 0;
     scene.add(mesh);
     return mesh;
 }
 
 function loadAndRenderTileData() {
-    const refXTile = 5287;
-    const refYTile = 12712;
-    fetch(`https://b.data.osmbuildings.org/0.2/ph2apjye/tile/15/${refXTile}/${refYTile}.json`).then(j => j.json())
+    const refXTile = lon2tile(-121.914, zoomLevel);
+    const refYTile = lat2tile(37.3635, zoomLevel);
+    fetch(`https://data.osmbuildings.org/0.2/anonymous/tile/${zoomLevel}/${refXTile}/${refYTile}.json`).then(j => j.json())
         .then((data) => {
             const tileBounds = globalMercatorUtils.TileBounds(refXTile,refYTile,15)
             const {lat: minLat, lon: minLon} = globalMercatorUtils.MetersToLatLon(tileBounds.minx, tileBounds.miny);
@@ -168,9 +185,13 @@ function loadAndRenderTileData() {
                         return ([(x - refLon) / longsPerUnits, (y - refLat) / latsPerUnit])
                     });
                     const mesh = makeInstance(coords, data.features[i].properties.height);
-                    mesh.xy = { x: 5287, y: 12712 };
+                    mesh.xy = { x: refXTile, y: refYTile };
                 }
             }
+
+            location[0] = refLat;
+            location[1] = refLon;
+            positionSunLight();
         });
 }
 
@@ -197,6 +218,7 @@ function animate() {
     }
     requestAnimationFrame( animate );
 
+    positionSunLight();
     controls.update(); // only required if controls.enableDamping = true, or if controls.autoRotate = true
 
     render();
@@ -207,6 +229,17 @@ function render() {
 
     renderer.render( scene, camera );
 
+}
+
+function renderDateTimeOutput() {
+    const outputContainer = document.querySelector("#dateTimeOutput");
+    outputContainer.innerHTML = `${when[0]}-${padToLength2(when[1])}-${padToLength2(when[2])}
+                            T${padToLength2(when[3])}:${padToLength2(when[4])}:${padToLength2(when[5])}${padToLength2(when[6])}:00`;
+}
+
+function padToLength2(num) {
+    let abs = Math.abs(num) < 10 ? '0' + Math.abs(num) : Math.abs(num);
+    return num < 0 ? '-' + abs : abs;
 }
 
 function addControls() {
@@ -220,12 +253,17 @@ function addControls() {
 
 function onChangeDayTimeSlider(event) {
     const value = event.target.value;
-    light.position.set(+value, light.position.y, light.position.z);
+    when[3] = Math.floor(+value);
+    when[4] = (+value - Math.floor(+value)) * 60;
+    renderDateTimeOutput();
 }
 
 function onChangeYearDaySlider(event) {
     const value = event.target.value;
-    light.position.set(light.position.x, light.position.y, +value);
+    const [month, day] = monthDayFromDayNum(+value);
+    when[1] = month;
+    when[2] = day;
+    renderDateTimeOutput();
 }
 
 function onChangeSceneLights(event) {
@@ -234,8 +272,30 @@ function onChangeSceneLights(event) {
     }
 }
 
+const monthDays = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 function lon2tile(lon,zoom) { return (Math.floor((lon+180)/360*Math.pow(2,zoom))); }
 function lat2tile(lat,zoom)  { return (Math.floor((1-Math.log(Math.tan(lat*Math.PI/180) + 1/Math.cos(lat*Math.PI/180))/Math.PI)/2 *Math.pow(2,zoom))); }
+function monthDayFromDayNum(dayNum) {
+    if (dayNum < 0 || dayNum > 364) {
+        throw new Error("Day number out of bounds");
+    }
+    let monthIdx = 0;
+    let remDays = dayNum;
+    while (remDays >= monthDays[monthIdx]) {
+        remDays -= monthDays[monthIdx];
+        monthIdx++;
+    }
+    return [monthIdx+1, remDays+1];
+}
+
+function dayNumFromMonthDay(month, day) {
+    let monthNum = 0;
+    let numDays = 0;
+    while (monthNum < month - 1) {
+        numDays += monthDays[monthNum++];
+    }
+    return numDays + day - 1;
+}
 
 /*Calculations
 * Mapping a 1223[1] m/side XY tile to 200 unit square in 3d space
