@@ -1,11 +1,53 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>three.js webgl - orbit controls</title>
+    <title>Building Sunlight Visualizer</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
     <link rel="stylesheet" href="resources/bulma-slider.min.js">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@creativebulma/bulma-tooltip@1.2.0/dist/bulma-tooltip.min.css">
+
+<style lang="text/css">
+.menuHeader {
+    position: absolute;
+    top: 0;
+    width: 100%;
+    background-color: rgba(250, 235, 215, 0.3);
+    box-shadow: 0 2px 10px;
+    padding: 10px 10px;
+    z-index: 3;
+}
+.menuHeader:hover {
+    background-color: rgba(250, 235, 215, 0.8);
+}
+#canvas-container {
+    position: relative;
+    z-index: 2;
+}
+#loading-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 0;
+}
+#loading-backdrop.fade {
+    height: 100%;
+    background-color: #2e2e2e7a;
+}
+.info-tip {
+    background-color: gold;
+    border: 1px solid;
+    border-radius: 50%;
+    width: 20px;
+    display: inline-block;
+    text-align: center;
+}
+span[data-tooltip] {
+    border: 1px solid;
+}
+</style>
 </head>
 
 <body>
@@ -15,23 +57,54 @@
 <script type="application/javascript" src="resources/ConvexHull.js"></script>
 <script type="application/javascript" src="resources/ConvexGeometry.js"></script>
 <script type="application/javascript" src="resources/VertexNormalsHelper.js"></script>
-<script type="application/javascript" src="resources/earcut.min.js"></script>
 
 <script type="module" src="main.js"></script>
-<div style="position: absolute; top: 0; width: 100%">
+<div class="menuHeader">
     <div><h2 class="title is-2 has-text-centered">Sunlight Visualizer</h2></div>
     <h3 class="subtitle is-3 has-text-centered" id="dateTimeOutput"></h3>
-    <div class="ml-2">
-        <input id="dayTimeSlider" class="slider is-fullwidth is-success" step="0.25" min="0"
-                             max="23.59" value="12" type="range" style="width:700px">
-        <label for="dayTimeSlider" class="has-text-weight-medium">Time</label>
+    <div class="columns">
+        <div class="column">
+            <div class="ml-2 is-flex is-align-items-baseline">
+                <span>
+                    <input id="latInput" type="text" style="width:200px" value="37.789545">
+                    <label for="latInput" class="has-text-weight-medium">Latitude</label>
+                </span>
+                <span>
+                    <input id="lonInput" type="text" style="width:200px" value="-122.3987127">
+                    <label for="lonInput" class="has-text-weight-medium">Longitude</label>
+                </span>
+                <button id="loadDataBtn" class="button is-success is-flex-grow-1">Render Tile</button>
+            </div>
+        </div>
+        <div class="column">
+            <div class="ml-2">
+                <input id="dayTimeSlider" class="slider is-fullwidth is-success" step="0.25" min="0"
+                       max="23.59" value="12" type="range" style="width:calc(100% - 200px)">
+                <label for="dayTimeSlider" class="has-text-weight-medium">Time</label>
+            </div>
+            <div class="ml-2">
+                <input id="yearDaySlider" class="slider is-fullwidth is-success" step="1" min="0"
+                       max="364" value="10" type="range" style="width:calc(100% - 200px)">
+                <label for="yearDaySlider" class="has-text-weight-medium">Date</label>
+            </div>
+        </div>
+        <div class="column">
+            <div class="is-flex is-align-items-baseline">
+                <input id="sceneLights" type="checkbox" checked><label for="sceneLights">Scene Lights</label>
+                <div class="select ml-5">
+                    <select id="shadowMapSize">
+                        <option value="512">512</option>
+                        <option value="1024">1024</option>
+                        <option value="2048" selected>2048</option>
+                    </select>
+                </div>
+                <label for="shadowMapSize" class="ml-1">Shadow Map Resolution <span class="info-tip" data-tooltip="Shadow detail">?</span></label>
+            </div>
+        </div>
     </div>
-    <div class="ml-2">
-        <input id="yearDaySlider" class="slider is-fullwidth is-success" step="1" min="0"
-                             max="364" value="10" type="range" style="width:700px">
-        <label for="yearDaySlider" class="has-text-weight-medium">Date</label>
-    </div>
-    <div><input id="sceneLights" type="checkbox" checked><label for="sceneLights">Scene Lights</label></div>
+</div>
+<div id="canvas-container">
+    <div id="loading-backdrop"></div>
 </div>
 </body>
 </html>

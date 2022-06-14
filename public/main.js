@@ -4,18 +4,21 @@ import SunposUtils from './resources/sunpos.js';
 let camera, controls, scene, renderer;
 
 let plane, cube, light, poly, sceneLights = [];
+let loadingBackdrop;
+let shadowMapSize = 2048;
 
 const globalMercatorUtils = new GlobalMercator();
 const today = new Date();
 const zoomLevel = 15;
+const monthArr = [0, 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'June', 'July', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 window.addEventListener('load', () => {
+    loadingBackdrop = document.querySelector('#loading-backdrop');
     init();
     animate();
 
     const yearDaySlider = document.querySelector('#yearDaySlider');
     yearDaySlider.value = dayNumFromMonthDay(today.getMonth()+1, today.getDate());
-    loadAndRenderTileData();
     addControls();
 });
 
@@ -33,7 +36,7 @@ function init() {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.setPixelRatio( window.devicePixelRatio );
     renderer.setSize( window.innerWidth, window.innerHeight );
-    document.body.appendChild( renderer.domElement );
+    document.querySelector('#canvas-container').appendChild( renderer.domElement );
 
     camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 1000 );
     camera.position.set(-200, 100, 0);
@@ -93,8 +96,8 @@ function makeLights() {
 
     light = new THREE.DirectionalLight(color, intensity);
     light.castShadow = true;
-    light.shadow.mapSize.width = 2048;
-    light.shadow.mapSize.height = 2048;
+    light.shadow.mapSize.width = shadowMapSize;
+    light.shadow.mapSize.height = shadowMapSize;
     light.shadow.camera.left = 150;
     light.shadow.camera.right = -150;
     light.shadow.camera.top = 150;
@@ -164,9 +167,9 @@ function makeInstance(coords, height) {
     return mesh;
 }
 
-function loadAndRenderTileData() {
-    const refXTile = lon2tile(-121.914, zoomLevel);
-    const refYTile = lat2tile(37.3635, zoomLevel);
+function loadAndRenderTileData(lat, lon) {
+    const refXTile = lon2tile(lon, zoomLevel);
+    const refYTile = lat2tile(lat, zoomLevel);
     fetch(`https://data.osmbuildings.org/0.2/anonymous/tile/${zoomLevel}/${refXTile}/${refYTile}.json`).then(j => j.json())
         .then((data) => {
             const tileBounds = globalMercatorUtils.TileBounds(refXTile,refYTile,15)
@@ -192,6 +195,7 @@ function loadAndRenderTileData() {
             location[0] = refLat;
             location[1] = refLon;
             positionSunLight();
+            loadingBackdrop.classList.remove('fade');
         });
 }
 
@@ -233,8 +237,8 @@ function render() {
 
 function renderDateTimeOutput() {
     const outputContainer = document.querySelector("#dateTimeOutput");
-    outputContainer.innerHTML = `${when[0]}-${padToLength2(when[1])}-${padToLength2(when[2])}
-                            T${padToLength2(when[3])}:${padToLength2(when[4])}:${padToLength2(when[5])}${padToLength2(when[6])}:00`;
+    const monthName = monthArr[when[1]];
+    outputContainer.innerHTML = `${when[0]}, ${monthName} ${padToLength2(when[2])} ${padToLength2(when[3])}:${padToLength2(when[4])}:${padToLength2(when[5])} ${padToLength2(when[6])} GMT`;
 }
 
 function padToLength2(num) {
@@ -243,12 +247,23 @@ function padToLength2(num) {
 }
 
 function addControls() {
+    const loadDataBtn = document.querySelector('#loadDataBtn');
+    loadDataBtn.addEventListener('click', onLoadDataBtnClicked);
     const dayTimeSlider = document.querySelector('#dayTimeSlider');
     dayTimeSlider.addEventListener('input', onChangeDayTimeSlider);
     const yearDaySlider = document.querySelector('#yearDaySlider');
     yearDaySlider.addEventListener('input', onChangeYearDaySlider);
     const sceneLights = document.querySelector('#sceneLights');
     sceneLights.addEventListener('input', onChangeSceneLights);
+    const shadowMapSelect = document.querySelector('#shadowMapSize');
+    shadowMapSelect.addEventListener('input', onChangeShadowMapSize);
+}
+
+function onLoadDataBtnClicked(event) {
+    loadingBackdrop.classList.add('fade');
+    const latInput = document.querySelector('#latInput').value;
+    const lonInput = document.querySelector('#lonInput').value;
+    loadAndRenderTileData(parseFloat(latInput), parseFloat(lonInput));
 }
 
 function onChangeDayTimeSlider(event) {
@@ -270,6 +285,13 @@ function onChangeSceneLights(event) {
     for (let sceneLight of sceneLights) {
         sceneLight.intensity = event.target.checked ? 1 : 0;
     }
+}
+
+function onChangeShadowMapSize(event) {
+    shadowMapSize = parseInt(event.target.value);
+    light.shadow.mapSize.width = shadowMapSize;
+    light.shadow.mapSize.height = shadowMapSize;
+    light.shadow.map = null;
 }
 
 const monthDays = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
