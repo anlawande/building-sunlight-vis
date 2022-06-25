@@ -4,6 +4,7 @@ import SunposUtils from './resources/sunpos.js';
 let camera, controls, scene, renderer;
 
 let plane, cube, light, poly, sceneLights = [];
+let sunBall, sunPath;
 let loadingBackdrop;
 let shadowMapSize = 2048;
 
@@ -57,6 +58,7 @@ function init() {
     controls.maxDistance = 500;
 
     controls.maxPolarAngle = Math.PI;
+    // controls.addEventListener( 'change', (args) => console.log(args.target.getDistance()) );
 
     // world
 
@@ -105,14 +107,14 @@ function makeLights() {
     light.shadow.camera.near = 0.5;
     light.shadow.camera.far = 500;
     scene.add(light);
-    let helper = new THREE.CameraHelper(light.shadow.camera);
-    scene.add(helper);
+    // let helper = new THREE.CameraHelper(light.shadow.camera);
+    // scene.add(helper);
 
     let sceneLight = new THREE.PointLight( color, 1, 200 );
     sceneLight.position.set(200, 10, 0);
     scene.add(sceneLight);
     sceneLights.push(sceneLight);
-    helper = new THREE.PointLightHelper(sceneLight, 10, 0xFF0000 );
+    let helper = new THREE.PointLightHelper(sceneLight, 10, 0xFF0000 );
     scene.add( helper );
 
     sceneLight = new THREE.PointLight( color, 1, 200 );
@@ -145,8 +147,58 @@ function positionSunLight() {
     light.position.z = x;
 }
 
+function renderSunPath() {
+    const coords = [];
+    const tempWhen = [...when];
+    for (let i = 0; i < 24; i+= 0.25) {
+        tempWhen[3] = Math.floor(i);
+        tempWhen[4] = (i - Math.floor(i)) * 60;
+        const [azimuth, elevation] = SunposUtils.sunpos(tempWhen, location, true);
+        if (elevation < 0) {
+            continue;
+        }
+        const [x, y, z] = SunposUtils.sunposXYZ(50, azimuth, elevation);
+        coords.push([y, z, x]);
+    }
+    const curve = new THREE.CatmullRomCurve3( coords.map(([x, y, z]) => new THREE.Vector3(x, y, z)) );
+
+    const geometry = new THREE.TubeGeometry( curve, 100, 2, 3, false );
+    const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial( { color: 0xffaa00, transparent: true, blending: THREE.AdditiveBlending } ));
+    if (sunPath) {
+        scene.remove(sunPath);
+    }
+    mesh.receiveShadow = false;
+    mesh.castShadow = false;
+    mesh.position.y = 0;
+    scene.add(mesh);
+    sunPath = mesh;
+    return mesh;
+}
+
+function renderSunBall() {
+    if (sunBall) {
+        scene.remove(sunBall);
+    }
+    const geometry = new THREE.SphereGeometry( 5, 32, 16 );
+    const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial( { color: 0xffaa00, transparent: true, blending: THREE.AdditiveBlending } ));
+    mesh.receiveShadow = false;
+    mesh.castShadow = false;
+    scene.add(mesh);
+    sunBall = mesh;
+    positionSunBall();
+    return mesh;
+}
+
+function positionSunBall() {
+    const [azimuth, elevation] = SunposUtils.sunpos(when, location, true);
+    const [x, y, z] = SunposUtils.sunposXYZ(50, azimuth, elevation);
+    sunBall.position.x = y;
+    sunBall.position.y = z;
+    sunBall.position.z = x;
+}
+
 function makeInstance(coords, height) {
-    var buildingShape = new THREE.Shape();
+    const buildingShape = new THREE.Shape();
 
     buildingShape.moveTo(coords[0][0], coords[0][1]);
     coords.forEach(e => buildingShape.lineTo(e[0], e[1]));
@@ -195,6 +247,8 @@ function loadAndRenderTileData(lat, lon) {
             location[0] = refLat;
             location[1] = refLon;
             positionSunLight();
+            renderSunPath();
+            renderSunBall();
             loadingBackdrop.classList.remove('fade');
         });
 }
@@ -271,6 +325,10 @@ function onChangeDayTimeSlider(event) {
     when[3] = Math.floor(+value);
     when[4] = (+value - Math.floor(+value)) * 60;
     renderDateTimeOutput();
+    if (!sunBall) {
+        return;
+    }
+    positionSunBall();
 }
 
 function onChangeYearDaySlider(event) {
@@ -279,6 +337,8 @@ function onChangeYearDaySlider(event) {
     when[1] = month;
     when[2] = day;
     renderDateTimeOutput();
+    renderSunPath();
+    positionSunBall();
 }
 
 function onChangeSceneLights(event) {
