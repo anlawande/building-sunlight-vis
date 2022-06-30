@@ -3,7 +3,7 @@ import SunposUtils from './resources/sunpos.js';
 
 let camera, controls, scene, renderer;
 
-let plane, cube, light, poly, sceneLights = [];
+let plane, cube, light;
 let sunBall, sunPath;
 let loadingBackdrop;
 let shadowMapSize = 2048;
@@ -109,34 +109,6 @@ function makeLights() {
     scene.add(light);
     // let helper = new THREE.CameraHelper(light.shadow.camera);
     // scene.add(helper);
-
-    let sceneLight = new THREE.PointLight( color, 1, 200 );
-    sceneLight.position.set(200, 10, 0);
-    scene.add(sceneLight);
-    sceneLights.push(sceneLight);
-    let helper = new THREE.PointLightHelper(sceneLight, 10, 0xFF0000 );
-    scene.add( helper );
-
-    sceneLight = new THREE.PointLight( color, 1, 200 );
-    sceneLight.position.set(-200, 10, 0);
-    scene.add(sceneLight);
-    sceneLights.push(sceneLight);
-    helper = new THREE.PointLightHelper(sceneLight, 10, 0x990000 );
-    scene.add( helper );
-
-    sceneLight = new THREE.PointLight( color, 1, 200 );
-    sceneLight.position.set(0, 10, 200);
-    scene.add(sceneLight);
-    sceneLights.push(sceneLight);
-    helper = new THREE.PointLightHelper(sceneLight, 10, 0x0000FF );
-    scene.add( helper );
-
-    sceneLight = new THREE.PointLight( color, 1, 200 );
-    sceneLight.position.set(0, 10, -200);
-    scene.add(sceneLight);
-    sceneLights.push(sceneLight);
-    helper = new THREE.PointLightHelper(sceneLight, 10, 0x000099 );
-    scene.add( helper );
 }
 
 function positionSunLight() {
@@ -307,8 +279,6 @@ function addControls() {
     dayTimeSlider.addEventListener('input', onChangeDayTimeSlider);
     const yearDaySlider = document.querySelector('#yearDaySlider');
     yearDaySlider.addEventListener('input', onChangeYearDaySlider);
-    const sceneLights = document.querySelector('#sceneLights');
-    sceneLights.addEventListener('input', onChangeSceneLights);
     const shadowMapSelect = document.querySelector('#shadowMapSize');
     shadowMapSelect.addEventListener('input', onChangeShadowMapSize);
 }
@@ -339,12 +309,6 @@ function onChangeYearDaySlider(event) {
     renderDateTimeOutput();
     renderSunPath();
     positionSunBall();
-}
-
-function onChangeSceneLights(event) {
-    for (let sceneLight of sceneLights) {
-        sceneLight.intensity = event.target.checked ? 1 : 0;
-    }
 }
 
 function onChangeShadowMapSize(event) {
