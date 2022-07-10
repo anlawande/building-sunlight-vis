@@ -6,7 +6,7 @@ import sunPathManager from './lib/sunPath.js';
 
 let camera, controls, scene, renderer;
 
-let plane, cube, light;
+let plane, cube, light, buildings = [];
 let loadingBackdrop;
 let shadowMapSize = 2048;
 
@@ -175,7 +175,12 @@ function makeInstance(coords, height) {
 function loadAndRenderTileData(lat, lon) {
     const refXTile = lon2tile(lon, zoomLevel);
     const refYTile = lat2tile(lat, zoomLevel);
-    fetch(`https://data.osmbuildings.org/0.2/anonymous/tile/${zoomLevel}/${refXTile}/${refYTile}.json`).then(j => j.json())
+    for (let obj of buildings) {
+        scene.remove(obj);
+    }
+    buildings = [];
+    fetch(`https://data.osmbuildings.org/0.2/anonymous/tile/${zoomLevel}/${refXTile}/${refYTile}.json`)
+        .then(j => j.json())
         .then((data) => {
             const tileBounds = globalMercatorUtils.TileBounds(refXTile,refYTile,15)
             const {lat: minLat, lon: minLon} = globalMercatorUtils.MetersToLatLon(tileBounds.minx, tileBounds.miny);
@@ -194,6 +199,7 @@ function loadAndRenderTileData(lat, lon) {
                     });
                     const mesh = makeInstance(coords, data.features[i].properties.height);
                     mesh.xy = { x: refXTile, y: refYTile };
+                    buildings.push(mesh);
                 }
             }
 
@@ -202,6 +208,9 @@ function loadAndRenderTileData(lat, lon) {
             positionSunLight();
             sunPathManager.renderSunPath(scene, when, location);
             sunPathManager.positionSunBall(when, location);
+        })
+        .catch(() => null)
+        .finally(() => {
             loadingBackdrop.classList.remove('fade');
         });
 }

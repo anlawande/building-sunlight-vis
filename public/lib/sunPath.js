@@ -1,6 +1,7 @@
 import SunposUtils from "../resources/sunpos.js";
 
 let sunPath, sunBall;
+let worldPos = {x: 0, y: 0, z: 0};
 
 function renderSunPath(scene, when, location) {
     const coords = [];
@@ -24,7 +25,9 @@ function renderSunPath(scene, when, location) {
     }
     mesh.receiveShadow = false;
     mesh.castShadow = false;
+    mesh.position.x = worldPos.x;
     mesh.position.y = 0;
+    mesh.position.z = worldPos.z;
     scene.add(mesh);
     sunPath = mesh;
     return mesh;
@@ -50,12 +53,15 @@ function positionSunBall(when, location) {
     const [azimuth, elevation] = SunposUtils.sunpos(when, location, true);
     const [x, y, z] = SunposUtils.sunposXYZ(50, azimuth, elevation);
     sunBall.originalPosition = { x: y, y: z, z: x };
-    sunBall.position.x = y;
-    sunBall.position.y = z;
-    sunBall.position.z = x;
+    sunBall.position.x = y + worldPos.x;
+    sunBall.position.y = z + worldPos.y;
+    sunBall.position.z = x + worldPos.z;
 }
 
 function translateSunPathAndBall(newPos) {
+    worldPos.x = newPos.x;
+    worldPos.y = newPos.y;
+    worldPos.z = newPos.z;
     if (!sunBall) {
         return;
     }
