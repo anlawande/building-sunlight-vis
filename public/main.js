@@ -1,15 +1,18 @@
 import GlobalMercator from './resources/globalmaptiles.js';
 import SunposUtils from './resources/sunpos.js';
+import utils from "./lib/utils.js";
+import grid from "./lib/grid.js";
+import sunPathManager from './lib/sunPath.js';
 
 let camera, controls, scene, renderer;
 
 let plane, cube, light;
-let sunBall, sunPath;
 let loadingBackdrop;
 let shadowMapSize = 2048;
 
 const globalMercatorUtils = new GlobalMercator();
 const today = new Date();
+const initialCameraPosition = [-200, 100, 0];
 const zoomLevel = 15;
 const monthArr = [0, 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'June', 'July', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -23,14 +26,13 @@ window.addEventListener('load', () => {
     addControls();
 });
 
-const location =[-6.7519, -74.0039];
+const location =[37.789545, -122.3987127];
 // Fourth of July, 2022 at 11:20 am MDT (-6 hours)
 const when = [2022, today.getMonth()+1, today.getDate(), 12, 0, 0, -7];
 
 function init() {
 
     scene = new THREE.Scene();
-    // scene.fog = new THREE.FogExp2( 0xcccccc, 0.002 );
 
     renderer = new THREE.WebGLRenderer( { antialias: true } );
     renderer.shadowMap.enabled = true;
@@ -40,7 +42,7 @@ function init() {
     document.querySelector('#canvas-container').appendChild( renderer.domElement );
 
     camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 1000 );
-    camera.position.set(-200, 100, 0);
+    camera.position.set(...initialCameraPosition);
 
     // controls
 
@@ -50,7 +52,7 @@ function init() {
     //controls.addEventListener( 'change', render ); // call this only in static scenes (i.e., if there is no animation loop)
 
     controls.enableDamping = true; // an animation loop is required when either damping or auto-rotation are enabled
-    controls.dampingFactor = 0.05;
+    controls.dampingFactor = 0.5;
 
     controls.screenSpacePanning = false;
 
@@ -58,7 +60,8 @@ function init() {
     controls.maxDistance = 500;
 
     controls.maxPolarAngle = Math.PI;
-    // controls.addEventListener( 'change', (args) => console.log(args.target.getDistance()) );
+    controls.addEventListener( 'change', utils.debounce((target) => sunPathManager.onWorldMove(target), 300,
+        (event) => [event.target.target]) );
 
     // world
 
@@ -85,8 +88,10 @@ function init() {
     makeLights();
     renderDateTimeOutput();
 
-    const axesHelper = new THREE.AxesHelper( 50 );
-    scene.add( axesHelper );
+    grid(scene);
+    sunPathManager.renderSunPath(scene, when, location);
+    sunPathManager.renderSunBall(scene);
+    sunPathManager.positionSunBall(when, location);
 
     window.addEventListener( 'resize', onWindowResize );
 
@@ -94,7 +99,7 @@ function init() {
 
 function makeLights() {
     const color = 0xFFFFFF;
-    const intensity = 10;
+    const intensity = 3;
 
     light = new THREE.DirectionalLight(color, intensity);
     light.castShadow = true;
@@ -109,6 +114,30 @@ function makeLights() {
     scene.add(light);
     // let helper = new THREE.CameraHelper(light.shadow.camera);
     // scene.add(helper);
+
+    let ambientLight = new THREE.PointLight(color, 0.3);
+    ambientLight.position.y = 100;
+    ambientLight.position.x = 200;
+    ambientLight.castShadow = false;
+    scene.add(ambientLight);
+
+    ambientLight = new THREE.PointLight(color, 0.3);
+    ambientLight.position.y = 100;
+    ambientLight.position.x = -200;
+    ambientLight.castShadow = false;
+    scene.add(ambientLight);
+
+    ambientLight = new THREE.PointLight(color, 0.3);
+    ambientLight.position.y = 100;
+    ambientLight.position.z = 200;
+    ambientLight.castShadow = false;
+    scene.add(ambientLight);
+
+    ambientLight = new THREE.PointLight(color, 0.3);
+    ambientLight.position.y = 100;
+    ambientLight.position.z = -200;
+    ambientLight.castShadow = false;
+    scene.add(ambientLight);
 }
 
 function positionSunLight() {
@@ -117,56 +146,6 @@ function positionSunLight() {
     light.position.x = y;
     light.position.y = z;
     light.position.z = x;
-}
-
-function renderSunPath() {
-    const coords = [];
-    const tempWhen = [...when];
-    for (let i = 0; i < 24; i+= 0.25) {
-        tempWhen[3] = Math.floor(i);
-        tempWhen[4] = (i - Math.floor(i)) * 60;
-        const [azimuth, elevation] = SunposUtils.sunpos(tempWhen, location, true);
-        if (elevation < 0) {
-            continue;
-        }
-        const [x, y, z] = SunposUtils.sunposXYZ(50, azimuth, elevation);
-        coords.push([y, z, x]);
-    }
-    const curve = new THREE.CatmullRomCurve3( coords.map(([x, y, z]) => new THREE.Vector3(x, y, z)) );
-
-    const geometry = new THREE.TubeGeometry( curve, 100, 2, 3, false );
-    const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial( { color: 0xffaa00, transparent: true, blending: THREE.AdditiveBlending } ));
-    if (sunPath) {
-        scene.remove(sunPath);
-    }
-    mesh.receiveShadow = false;
-    mesh.castShadow = false;
-    mesh.position.y = 0;
-    scene.add(mesh);
-    sunPath = mesh;
-    return mesh;
-}
-
-function renderSunBall() {
-    if (sunBall) {
-        scene.remove(sunBall);
-    }
-    const geometry = new THREE.SphereGeometry( 5, 32, 16 );
-    const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial( { color: 0xffaa00, transparent: true, blending: THREE.AdditiveBlending } ));
-    mesh.receiveShadow = false;
-    mesh.castShadow = false;
-    scene.add(mesh);
-    sunBall = mesh;
-    positionSunBall();
-    return mesh;
-}
-
-function positionSunBall() {
-    const [azimuth, elevation] = SunposUtils.sunpos(when, location, true);
-    const [x, y, z] = SunposUtils.sunposXYZ(50, azimuth, elevation);
-    sunBall.position.x = y;
-    sunBall.position.y = z;
-    sunBall.position.z = x;
 }
 
 function makeInstance(coords, height) {
@@ -181,7 +160,9 @@ function makeInstance(coords, height) {
 
     let geometry = new THREE.ExtrudeGeometry(buildingShape, extrudeSettings);
 
-    const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: 0x777777 }));
+    //121, 109, 86
+    const colorRandArr = [utils.randomIntInRange(100, 120), utils.randomIntInRange(95, 110), utils.randomIntInRange(70, 90)];
+    const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: `rgb(${colorRandArr[0]}, ${colorRandArr[1]}, ${colorRandArr[2]})` }));
     mesh.receiveShadow = true;
     mesh.castShadow = true;
     mesh.rotation.x = -Math.PI / 2;
@@ -219,8 +200,8 @@ function loadAndRenderTileData(lat, lon) {
             location[0] = refLat;
             location[1] = refLon;
             positionSunLight();
-            renderSunPath();
-            renderSunBall();
+            sunPathManager.renderSunPath(scene, when, location);
+            sunPathManager.positionSunBall(when, location);
             loadingBackdrop.classList.remove('fade');
         });
 }
@@ -295,10 +276,7 @@ function onChangeDayTimeSlider(event) {
     when[3] = Math.floor(+value);
     when[4] = (+value - Math.floor(+value)) * 60;
     renderDateTimeOutput();
-    if (!sunBall) {
-        return;
-    }
-    positionSunBall();
+    sunPathManager.positionSunBall(when, location);
 }
 
 function onChangeYearDaySlider(event) {
@@ -307,8 +285,8 @@ function onChangeYearDaySlider(event) {
     when[1] = month;
     when[2] = day;
     renderDateTimeOutput();
-    renderSunPath();
-    positionSunBall();
+    sunPathManager.renderSunPath(scene, when, location);
+    sunPathManager.positionSunBall(when, location);
 }
 
 function onChangeShadowMapSize(event) {
