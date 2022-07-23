@@ -2,6 +2,7 @@ import GlobalMercator from './resources/globalmaptiles.js';
 import SunposUtils from './resources/sunpos.js';
 import utils from "./lib/utils.js";
 import grid from "./lib/grid.js";
+import info from "./lib/info.js";
 import sunPathManager from './lib/sunPath.js';
 
 let camera, controls, scene, renderer;
@@ -24,6 +25,8 @@ window.addEventListener('load', () => {
     const yearDaySlider = document.querySelector('#yearDaySlider');
     yearDaySlider.value = dayNumFromMonthDay(today.getMonth()+1, today.getDate());
     addControls();
+
+    info();
 });
 
 const location =[37.789545, -122.3987127];

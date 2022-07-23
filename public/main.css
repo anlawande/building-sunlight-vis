@@ -1,0 +1,84 @@
+.menuHeader {
+    position: absolute;
+    top: 0;
+    width: 100%;
+    background-color: rgba(250, 235, 215, 0.3);
+    box-shadow: 0 2px 10px;
+    padding: 10px 10px;
+    z-index: 3;
+}
+.menuHeader:hover {
+    background-color: rgba(250, 235, 215, 0.8);
+}
+#canvas-container {
+    position: relative;
+    z-index: 2;
+}
+#loading-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 0;
+}
+#loading-backdrop.fade {
+    height: 100%;
+    background-color: #2e2e2e7a;
+}
+.info-tip {
+    background-color: gold;
+    border: 1px solid;
+    border-radius: 50%;
+    width: 20px;
+    display: inline-block;
+    text-align: center;
+}
+span[data-tooltip] {
+    border: 1px solid;
+}
+#info-container {
+    position: absolute;
+    right: 15px;
+    z-index: 0;
+    padding: 5px;
+    border-radius: 5px;
+    background-color: #FFF;
+}
+#info-container:hover {
+    border: 1px solid #5c6ce8;
+}
+#info-container:hover #info-content {
+    opacity: 1;
+    display: block;
+    transition: opacity 0.4s ease-in;
+    visibility: visible;
+    width: auto;
+    height: auto;
+}
+/*Prevent flicker movement of icon due to added border*/
+#info-container:hover #info-icon {
+    top: 9px;
+    right: 9px;
+    cursor: pointer;
+}
+#info-container #info-content {
+    visibility: hidden;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    margin-right: 40px;
+}
+#info-container #info-icon {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+}
+#info-container #info-icon svg {
+    font-size: 2em;
+}
+#info-container .info-content-item {
+    display: none;
+}
+#info-container .info-content-item.active {
+    display: block;
+}
