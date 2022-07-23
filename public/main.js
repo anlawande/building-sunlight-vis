@@ -27,6 +27,8 @@ window.addEventListener('load', () => {
     addControls();
 
     info();
+
+    preload();
 });
 
 const location =[37.789545, -122.3987127];
@@ -98,6 +100,22 @@ function init() {
 
     window.addEventListener( 'resize', onWindowResize );
 
+}
+
+function preload() {
+    const queryParams = window.location.search
+        .replace(/^\?/, '').split('&')
+        .map(p => p.split('='))
+        .reduce((acc, elem) => Object.assign(acc, {[elem[0]]: elem[1]}), {});
+
+    const lat = queryParams['lat'] ? parseFloat(queryParams['lat']) : undefined;
+    const lon = queryParams['lon'] ? parseFloat(queryParams['lon']) : undefined;
+
+    if (lat && lon) {
+        document.querySelector('#latInput').value = lat;
+        document.querySelector('#lonInput').value = lon;
+        onLoadDataBtnClicked();
+    }
 }
 
 function makeLights() {
@@ -190,15 +208,13 @@ function loadAndRenderTileData(lat, lon) {
             const {lat: maxLat, lon: maxLon} = globalMercatorUtils.MetersToLatLon(tileBounds.maxx, tileBounds.maxy);
             const refLon = (minLon + maxLon) / 2;
             const refLat = -(minLat + maxLat) / 2;
-            const latsPerUnit = 0.00005493172835070069; //See calculations below
-            const longsPerUnits = 1 / (40075000 * Math.cos(refLat) / 360) * 8; // No idea how it is off by factor of 8;
 
             for (let i = 0; i < data.features.length; i++) {
                 const coordsArr = data.features[i].geometry.coordinates;
                 for (let j = 0; j < coordsArr.length; j++) {
                     let coords = coordsArr[j];
                     coords = coords.map(([x, y]) => {
-                        return ([(x - refLon) / longsPerUnits, (y - refLat) / latsPerUnit])
+                        return positionRelativeTo(x, y, refLon, refLat);
                     });
                     const mesh = makeInstance(coords, data.features[i].properties.height);
                     mesh.xy = { x: refXTile, y: refYTile };
@@ -211,11 +227,37 @@ function loadAndRenderTileData(lat, lon) {
             positionSunLight();
             sunPathManager.renderSunPath(scene, when, location);
             sunPathManager.positionSunBall(when, location);
+            makePositionMarker(refLon, refLat, lon, lat);
+
         })
         .catch(() => null)
         .finally(() => {
             loadingBackdrop.classList.remove('fade');
         });
+}
+
+function positionRelativeTo(x, y, refLon, refLat) {
+    const latsPerUnit = 0.00005493172835070069; //See calculations below
+    const longsPerUnits = 1 / (40075000 * Math.cos(refLat) / 360) * 8; // No idea how it is off by factor of 8;
+
+    return [(x - refLon) / longsPerUnits, (y - refLat) / latsPerUnit];
+}
+
+function makePositionMarker(refLon, refLat, lon, lat) {
+    if (!refLon || !refLat) {
+        return;
+    }
+
+    const geometry = new THREE.TorusGeometry( 10, 1, 5, 50 );
+    const material = new THREE.MeshBasicMaterial( { color: 0x0000aa } );
+    const torus = new THREE.Mesh( geometry, material );
+    const [x, y] = positionRelativeTo(lon, lat, refLon, refLat);
+    torus.position.x = y;
+    torus.position.z = x;
+    torus.position.y = 20;
+    torus.rotation.x = -Math.PI / 2;
+    torus.rotation.z = -Math.PI / 2;
+    scene.add( torus );
 }
 
 function onWindowResize() {
