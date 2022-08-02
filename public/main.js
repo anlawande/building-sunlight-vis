@@ -5,7 +5,7 @@ import grid from "./lib/grid.js";
 import info from "./lib/info.js";
 import sunPathManager from './lib/sunPath.js';
 
-let camera, controls, scene, renderer;
+let camera, controls, scene, renderer, positionMarker;
 
 let plane, cube, light, buildings = [];
 let loadingBackdrop;
@@ -65,8 +65,8 @@ function init() {
     controls.maxDistance = 500;
 
     controls.maxPolarAngle = Math.PI;
-    controls.addEventListener( 'change', utils.debounce((target) => sunPathManager.onWorldMove(target), 300,
-        (event) => [event.target.target]) );
+    controls.addEventListener( 'change', utils.debounce(sunPathManager.onWorldMove, 300,
+        (event) => [event.target.target, event.target.getDistance(), when, location]) );
 
     // world
 
@@ -257,6 +257,7 @@ function makePositionMarker(refLon, refLat, lon, lat) {
     torus.position.y = 20;
     torus.rotation.x = -Math.PI / 2;
     torus.rotation.z = -Math.PI / 2;
+    positionMarker = torus;
     scene.add( torus );
 }
 
@@ -316,6 +317,8 @@ function addControls() {
     yearDaySlider.addEventListener('input', onChangeYearDaySlider);
     const shadowMapSelect = document.querySelector('#shadowMapSize');
     shadowMapSelect.addEventListener('input', onChangeShadowMapSize);
+    const positionMarkerCheckbox = document.querySelector('#position-marker-checkbox');
+    positionMarkerCheckbox.addEventListener('input', onChangePositionMarkerEnabled);
 }
 
 function onLoadDataBtnClicked(event) {
@@ -348,6 +351,15 @@ function onChangeShadowMapSize(event) {
     light.shadow.mapSize.width = shadowMapSize;
     light.shadow.mapSize.height = shadowMapSize;
     light.shadow.map = null;
+}
+
+function onChangePositionMarkerEnabled(event) {
+    if (event.target.checked) {
+        scene.add(positionMarker);
+    }
+    else {
+        scene.remove(positionMarker);
+    }
 }
 
 const monthDays = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
